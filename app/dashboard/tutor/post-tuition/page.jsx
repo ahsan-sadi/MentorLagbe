@@ -15,6 +15,7 @@ import { useTutions } from "@/hooks/use-tutions"
 import { FREE_TUTOR_POST_LIMIT } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { createTutions } from "@/lib/actions/tutions"
+import { getTutionsCount } from "@/lib/api/tutions"
 
 /* Create a new tuition listing. The free-plan post limit is checked here
    (the API stores whatever it's given), any rejection comes back as a toast. */
@@ -38,10 +39,20 @@ export default function PostTuitionPage() {
   const canPost = isPro || slotsLeft > 0
 
   const handleSubmit = async (data) => {
-    if (!isPro && mine.length >= FREE_TUTOR_POST_LIMIT) {
-      return toast.error(
-        `Free plan limit reached (${FREE_TUTOR_POST_LIMIT} tuitions). Upgrade to Pro for unlimited posts.`
-      )
+    /* Free-plan cap, confirmed against the API (the source of truth). If the
+       count endpoint can't be reached we fall back to the list already
+       loaded, so a flaky network never blocks a post. */
+    if (!isPro) {
+      const countResult = await getTutionsCount(user.email)
+      const mineCount = countResult.ok ? countResult.count : mine.length
+      if (mineCount >= FREE_TUTOR_POST_LIMIT) {
+        toast.error(
+          `Free plan limit reached (${FREE_TUTOR_POST_LIMIT} tuitions). Upgrade to Pro for unlimited posts.`
+        )
+        /* Tutors have no transactions page — the upgrade flow lives on /pricing. */
+        router.push("/pricing")
+        return
+      }
     }
     setSubmitting(true)
     const result = await createTutions({
