@@ -4,7 +4,7 @@ A clean, modern tutoring marketplace frontend — **students** find tuition batc
 
 Built with **Next.js 16 (App Router) · Tailwind CSS v4 · shadcn/ui (Base UI) · plain JavaScript**.
 
-> This build is **frontend-only**: all data (users, tuitions, applications, payments) lives in a mocked, `localStorage`-backed store that mirrors the 4 MongoDB collections from the spec (`users`, `tuitions`, `applications`, `payments`). Every action is async and delayed so loading/pending states behave like a real API — swap `lib/store.jsx` for real fetches and nothing else changes.
+> This build pairs a mocked, `localStorage`-backed store (users, applications, reviews) with real APIs: tuitions are served by the Express backend, auth by Better Auth + MongoDB, and **payments by Stripe** (recorded in the `payments` collection, see “Stripe payments” below). Every mock action is async and delayed so loading/pending states behave like a real API — swap `lib/store.jsx` for real fetches and nothing else changes.
 
 ## Getting started
 
@@ -30,7 +30,7 @@ Sign up creates a brand-new account with the `free` plan — pick your role on `
 - Home (`/`): hero with search, 6 latest approved tuitions, Free vs Pro pricing, 4-step workflow, subject categories + platform stats + testimonials, CTA band
 - Browse (`/tuitions`): URL-driven search + subject/class-level/mode filters and pagination (shareable, server-read query params)
 - Details (`/tuitions/[id]`): full listing, tutor summary, student reviews, **role-restricted apply flow** (students only, one application per tuition)
-- Pricing (`/pricing`): Free vs Pro Tutor ($15) vs Pro Student ($10) with simulated Stripe Checkout
+- Pricing (`/pricing`): Free vs Pro Tutor ($15) vs Pro Student ($10) with **real Stripe Checkout** (one-time payment — see “Stripe payments” below)
 - Sign in / Sign Up with validation + toasts, `/payment/success`, `/payment/cancel`
 - How It Works (`/about`), 404 + error boundaries, loading skeletons everywhere
 
@@ -41,6 +41,45 @@ Sign up creates a brand-new account with the `free` plan — pick your role on `
 - Shared: `/dashboard/profile` (name, phone, bio, avatar upload or URL, demo reset)
 
 **Extras**: dark/light theme toggle (press <kbd>d</kbd>), bookmarks, server-style pagination, sonner toasts, seed data with 12 approved tuition listings.
+
+## Stripe payments
+
+Pro upgrades run through **real Stripe Checkout** (one-time payment, dynamic
+`price_data` — no Products need to exist in the dashboard first):
+
+```
+SubscribeButton → POST /api/checkout  →  Stripe-hosted checkout
+                                        ├─ success → /payment/success
+                                        │            GET /api/checkout/verify
+                                        └─ cancel  → /payment/cancel
+POST /api/webhooks/stripe  ──►  payments collection (MongoDB)
+                                user.plan = "pro"
+```
+
+| Route                         | What it does                                                        |
+| ----------------------------- | ------------------------------------------------------------------- |
+| `POST /api/checkout`          | Creates the Checkout Session from `PLANS` (auth + audience checked) |
+| `POST /api/webhooks/stripe`   | Signature-verified webhook → records payment, upgrades the user      |
+| `GET /api/checkout/verify`    | Reads the session from Stripe for the receipt; also finalises if the webhook is late |
+| `GET /api/payments`           | Admin-only list of recorded payments                                 |
+
+**Setup**
+
+1. `.env` already holds `STRIPE_SECRET_KEY` (+ the publishable key).
+2. Add `STRIPE_WEBHOOK_SECRET` — locally:
+
+   ```bash
+   stripe listen --forward-to localhost:3000/api/webhooks/stripe
+   ```
+
+   Paste the printed `whsec_…` into `.env`. In production, create an endpoint
+   for `/api/webhooks/stripe` (event: `checkout.session.completed`) in the
+   Stripe dashboard and copy its signing secret.
+3. Restart `npm run dev`. Test cards: `4242 4242 4242 4242`, any future date,
+   any CVC.
+
+Both the webhook and the success-page verifier upsert on `stripeSessionId`, so
+whichever arrives first writes the payment — duplicates are harmless.
 
 ## Project structure
 

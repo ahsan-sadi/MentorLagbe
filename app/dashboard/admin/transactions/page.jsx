@@ -1,7 +1,14 @@
 "use client"
 
 import { useMemo } from "react"
-import { CircleDollarSign, GraduationCap, Receipt, Users } from "lucide-react"
+import {
+  CircleDollarSign,
+  GraduationCap,
+  Loader2,
+  Receipt,
+  TriangleAlert,
+  Users,
+} from "lucide-react"
 
 import {
   Table,
@@ -17,6 +24,7 @@ import StatCard from "@/components/shared/stat-card"
 import { RoleBadge } from "@/components/shared/role-badge"
 import { useRequireAuth } from "@/lib/auth-context"
 import { useStore } from "@/lib/store"
+import { usePayments } from "@/hooks/use-payments"
 
 const fmtDate = (iso) =>
   new Date(iso).toLocaleDateString("en-GB", {
@@ -27,7 +35,9 @@ const fmtDate = (iso) =>
 
 export default function AdminTransactionsPage() {
   const { ready } = useRequireAuth(["admin"])
-  const { users, payments } = useStore()
+  const { users } = useStore()
+  /* Real Stripe records from MongoDB — not the demo store. */
+  const { payments, hydrated, error } = usePayments()
 
   const revenue = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0)
   const paidCount = payments.filter((p) => p.paymentStatus === "paid").length
@@ -47,6 +57,39 @@ export default function AdminTransactionsPage() {
     return (
       <div className="flex min-h-[45vh] items-center justify-center text-sm text-muted-foreground">
         Redirecting to the admin dashboard…
+      </div>
+    )
+  }
+
+  /* first fetch still in flight — never flash "$0 revenue" */
+  if (!hydrated) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          eyebrow="Admin"
+          title="Transactions"
+          description="Every Stripe payment made on MentorLagbe, newest first — plan upgrades from tutors and students in one place."
+        />
+        <div className="flex min-h-[30vh] items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" /> Loading transactions…
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          eyebrow="Admin"
+          title="Transactions"
+          description="Every Stripe payment made on MentorLagbe, newest first — plan upgrades from tutors and students in one place."
+        />
+        <EmptyState
+          icon={TriangleAlert}
+          title="Could not load payments"
+          description={error.message}
+        />
       </div>
     )
   }
@@ -114,7 +157,7 @@ export default function AdminTransactionsPage() {
             </TableHeader>
             <TableBody>
               {sorted.map((payment) => (
-                <TableRow key={payment._id}>
+                <TableRow key={payment.stripeSessionId || String(payment._id)}>
                   <TableCell className="px-4 py-3 font-medium text-foreground">
                     {payment.userName}
                   </TableCell>

@@ -53,16 +53,11 @@ export function PlanCard({
       <CardContent className="space-y-1">
         <p className="font-heading text-4xl font-extrabold tracking-tight">
           {price}
-          {!isFree && (
-            <span className="text-base font-medium text-muted-foreground">
-              /month
-            </span>
-          )}
         </p>
         <p className="text-xs text-muted-foreground">
           {isFree
             ? "Free forever · no card required"
-            : "Billed monthly · cancel anytime"}
+            : "One-time payment · Pro forever"}
         </p>
       </CardContent>
       <CardContent className="flex-1 space-y-2.5 pt-2">

@@ -1,7 +1,8 @@
 "use client"
 
-/* Simulated Stripe Checkout — creates a payment record + upgrades the
-   user to Pro, then redirects to the success page. */
+/* Starts a real Stripe Checkout Session via POST /api/checkout and hands the
+   browser over to Stripe-hosted payment. Card details never touch this app —
+   the plan upgrade happens in the webhook / success-page verifier. */
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -9,17 +10,10 @@ import { toast } from "sonner"
 import { Loader2, Zap } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { useStore } from "@/lib/store"
 import { useAuth } from "@/lib/auth-context"
 
-export function SubscribeButton({
-  plan,
-  audience,
-  className,
-  size = "default",
-}) {
+export function SubscribeButton({ plan, className, size = "default" }) {
   const router = useRouter()
-  const { actions } = useStore()
   const { user, isAuthenticated } = useAuth()
   const [busy, setBusy] = useState(false)
 
@@ -35,17 +29,27 @@ export function SubscribeButton({
       )
       return
     }
+
     setBusy(true)
-    const result = await actions.checkout(plan)
-    setBusy(false)
-    if (!result.ok) {
-      toast.error(result.error)
-      return
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id }),
+      })
+      const data = await res.json().catch(() => null)
+
+      if (!res.ok || !data?.url) {
+        toast.error(data?.error || "Could not start checkout — try again.")
+        setBusy(false)
+        return
+      }
+      /* Full page navigation: Stripe owns the next screen. */
+      window.location.href = data.url
+    } catch {
+      toast.error("Could not reach the payment server — try again.")
+      setBusy(false)
     }
-    toast.success("Payment successful — welcome to Pro!")
-    router.push(
-      `/payment/success?session_id=${result.payment.stripeSessionId}&plan=${encodeURIComponent(plan.name)}`
-    )
   }
 
   return (

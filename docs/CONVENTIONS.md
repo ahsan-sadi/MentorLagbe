@@ -80,6 +80,7 @@ user:      { _id, name, email, password, image, role: 'student'|'tutor'|'admin',
 tuition:   { _id, title, subject, classLevel, mode:'Online'|'Offline', location, monthlyFee, daysPerWeek, schedule, bannerImage, description, tutorName, tutorEmail, tutorPlan, approvalStatus:'pending'|'approved'|'rejected', isActive, createdAt }
 application:{ _id, tuitionId, tuitionTitle, subject, monthlyFee, tutorEmail, studentName, studentEmail, studentPhone, preferredSchedule, studentNote, status:'pending'|'accepted'|'rejected', appliedAt }
 payment:   { _id, userEmail, userName, userRole, planName, amount, currency, transactionId, stripeSessionId, paymentStatus:'paid', paidAt }
+           // ^ written to MongoDB by the Stripe webhook — read via GET /api/payments, not useStore()
 review:    { _id, tuitionId, studentName, rating, comment, createdAt }
 ```
 
@@ -96,7 +97,11 @@ await actions.applyToTuition(tuitionId, { studentPhone, preferredSchedule, stude
 await actions.setApplicationStatus(id, 'accepted'|'rejected') // tutor
 await actions.cancelApplication(id)                           // student, pending only
 await actions.toggleBookmark(tuitionId)
-await actions.checkout(plan)          // plan = PLANS.proTutor | PLANS.proStudent → creates payment + sets plan 'pro'
+// Payments are REAL Stripe (not the mock store):
+//   POST /api/checkout { planId }        → { url } — redirect the browser there
+//   GET  /api/checkout/verify?session_id → receipt from Stripe (records + upgrades if the webhook is late)
+//   GET  /api/payments (admin)           → usePayments() hook → real MongoDB records
+// The mock `actions.checkout(plan)` still exists but is no longer wired to the UI.
 await actions.setUserRole(id, role)   // admin
 await actions.addReview({ tuitionId, rating, comment })
 await actions.resetDemo()             // resets localStorage back to seed

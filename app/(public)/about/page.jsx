@@ -84,7 +84,7 @@ const features = [
   {
     icon: CreditCard,
     title: "Secure Stripe plans",
-    text: "Upgrades run through a Stripe-style checkout with clear pricing, instant activation and the option to cancel anytime.",
+    text: "Upgrades run through Stripe's hosted checkout with clear pricing and instant activation — the plan flips to Pro the moment the payment lands.",
   },
   {
     icon: ImageUp,

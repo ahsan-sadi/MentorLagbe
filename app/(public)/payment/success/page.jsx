@@ -1,9 +1,10 @@
 "use client"
 
-/* Post-checkout confirmation — matches the Stripe session id from the query
-   string against the payment record in the store, then shows the receipt. */
+/* Post-checkout confirmation — asks /api/checkout/verify to read the Checkout
+   Session straight from Stripe, records it (idempotent with the webhook) and
+   shows the receipt. Nothing on this page trusts the query string for money. */
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
@@ -20,8 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { useAuth, dashboardHome } from "@/lib/auth-context"
-import { useStore } from "@/lib/store"
-import { PLANS, STATUS_STYLES } from "@/lib/constants"
+import { STATUS_STYLES } from "@/lib/constants"
 
 const money = (amount, currency = "USD") =>
   new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
@@ -77,63 +77,93 @@ function VerifyingReceipt() {
 function PaymentSuccessContent() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get("session_id")
-  const planParam = searchParams.get("plan")
 
-  const { payments } = useStore()
   const { user, isAuthenticated } = useAuth()
 
-  const [verifying, setVerifying] = useState(true)
+  /* { loading, payment, error } — error is "pending" when Stripe has not
+     marked the session paid yet (webhook still in flight). Seeded from the
+     query string so a missing id never needs an effect to flag it. */
+  const [state, setState] = useState(() => ({
+    loading: Boolean(sessionId),
+    payment: null,
+    error: sessionId ? null : "missing",
+  }))
   const toastedRef = useRef(false)
 
-  /* simulate the Stripe webhook round-trip before showing the receipt */
   useEffect(() => {
-    const timer = setTimeout(() => setVerifying(false), 600)
-    return () => clearTimeout(timer)
-  }, [])
+    if (!sessionId) return
+    let cancelled = false
 
-  const payment = useMemo(
-    () =>
-      sessionId
-        ? payments.find((p) => p.stripeSessionId === sessionId) || null
-        : null,
-    [payments, sessionId]
-  )
+    fetch(`/api/checkout/verify?session_id=${encodeURIComponent(sessionId)}`)
+      .then((res) => res.json().then((data) => ({ status: res.status, data })))
+      .then(({ status, data }) => {
+        if (cancelled) return
+        if (status !== 200 || !data?.ok) {
+          setState({
+            loading: false,
+            payment: null,
+            error: data?.error || "failed",
+          })
+        } else {
+          setState({
+            loading: false,
+            payment: data.payment,
+            error: data.payment ? null : "pending",
+          })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setState({ loading: false, payment: null, error: "failed" })
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId])
 
   /* fire exactly once, even under StrictMode double-effects */
   useEffect(() => {
-    if (verifying || toastedRef.current) return
+    if (state.loading || state.error === "missing" || toastedRef.current) return
     toastedRef.current = true
-    if (payment) {
-      toast.success(`Payment confirmed — ${payment.planName} is active!`)
-    } else if (sessionId) {
+    if (state.payment) {
+      toast.success(`Payment confirmed — ${state.payment.planName} is active!`)
+    } else if (state.error === "pending") {
+      toast.info("Stripe is confirming your payment…")
+    } else {
       toast.error("We could not locate this payment session.")
     }
-  }, [verifying, payment, sessionId])
+  }, [state])
 
-  if (verifying) return <VerifyingReceipt />
+  if (state.loading) return <VerifyingReceipt />
 
-  /* graceful fallback when no payment record matches the session */
-  const fallbackPlan = Object.values(PLANS).find((p) => p.name === planParam)
+  const { payment, error } = state
 
   const receipt = [
-    { label: "Plan", value: payment?.planName || planParam || "Pro plan" },
+    { label: "Plan", value: payment?.planName || "Pro plan" },
     {
       label: "Amount",
       value: payment
         ? `${money(payment.amount, payment.currency)} ${payment.currency}`
-        : fallbackPlan
-          ? `${money(fallbackPlan.price)} USD`
-          : "—",
+        : "—",
     },
     { label: "Transaction ID", value: payment?.transactionId || "—" },
     {
       label: "Stripe session",
-      value: payment?.stripeSessionId || sessionId || "—",
+      value: sessionId || "—",
       mono: true,
     },
     { label: "Date", value: payment ? formatDate(payment.paidAt) : "—" },
     { label: "Status", status: payment ? "paid" : "pending" },
   ]
+
+  const warning =
+    error === "pending"
+      ? "Stripe has not confirmed this session yet — your plan will unlock within a minute. No action needed."
+      : error === "missing"
+        ? "This link is missing its Checkout session id, so there is no receipt to show."
+        : "We could not verify this session with Stripe. If you just completed checkout, your plan will update within a minute — otherwise contact support."
 
   return (
     <div className="container-page py-12 sm:py-16">
@@ -155,11 +185,7 @@ function PaymentSuccessContent() {
         {!payment && (
           <p className="mx-auto mt-6 flex w-fit items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-xs leading-relaxed text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
             <CircleAlert className="mt-0.5 size-4 shrink-0" />
-            <span>
-              We could not match this session to a payment record — no charge
-              was made. If you just completed checkout, your plan will update
-              within a minute.
-            </span>
+            <span>{warning}</span>
           </p>
         )}
 
@@ -181,7 +207,7 @@ function PaymentSuccessContent() {
                   <span
                     className={cn(
                       "inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-                      STATUS_STYLES[row.status]
+                      STATUS_STYLES[row.status] || STATUS_STYLES.pending
                     )}
                   >
                     {row.status === "paid" ? "Paid" : "Verifying"}

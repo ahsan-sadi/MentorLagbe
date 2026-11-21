@@ -23,10 +23,10 @@ export const metadata = { title: "Pricing" }
 
 const comparison = [
   {
-    feature: "Monthly price",
+    feature: "One-time price",
     free: "$0",
-    proTutor: "$15/month",
-    proStudent: "$10/month",
+    proTutor: "$15 once",
+    proStudent: "$10 once",
   },
   {
     feature: "Tuition posts",
@@ -117,7 +117,7 @@ const faqs = [
   {
     id: "upgrade",
     q: "How does upgrading work?",
-    a: "Tap “Subscribe with Stripe” on any Pro plan, complete the simulated checkout and you land on the payment success page — your account switches to Pro instantly and every new feature unlocks in your dashboard. No waiting, no support ticket.",
+    a: "Tap “Subscribe with Stripe” on any Pro plan, complete the hosted Stripe checkout and you land on the payment success page — your account switches to Pro instantly and every new feature unlocks in your dashboard. No waiting, no support ticket.",
   },
   {
     id: "post-limit",
@@ -127,7 +127,7 @@ const faqs = [
   {
     id: "refunds",
     q: "What is your refund policy?",
-    a: "Plans are billed monthly and you can cancel any time — your Pro benefits stay active until the end of the current billing period. If a charge was made in error, email hello@mentorlagbe.com within 7 days and we will make it right.",
+    a: "Pro plans are a single one-time payment — there is nothing to cancel and no recurring charge. If a charge was made in error, email hello@mentorlagbe.com within 7 days and we will make it right.",
   },
   {
     id: "students",
@@ -137,7 +137,7 @@ const faqs = [
   {
     id: "payments",
     q: "Which payment methods do you accept?",
-    a: "Checkout is powered by Stripe, so you can pay with any major debit or credit card (Visa, Mastercard, Amex). This demo simulates the Stripe flow — no real card is ever charged.",
+    a: "Checkout is powered by Stripe, so you can pay with any major debit or credit card (Visa, Mastercard, Amex, Apple Pay). Card details are entered on Stripe's own hosted page and never touch MentorLagbe's servers.",
   },
 ]
 
@@ -165,7 +165,7 @@ export default function PricingPage() {
 
       <p className="mx-auto mt-8 flex w-fit items-center justify-center gap-2 rounded-full border border-border bg-muted/40 px-4 py-2 text-sm text-muted-foreground">
         <ShieldCheck className="size-4 text-emerald-500" />
-        Secured payments powered by Stripe — cancel anytime
+        Secured payments powered by Stripe — one-time payment, no subscription
       </p>
 
       {/* --------------------------- comparison ----------------------------- */}

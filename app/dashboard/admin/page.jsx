@@ -22,6 +22,7 @@ import StatCard from "@/components/shared/stat-card"
 import { useRequireAuth } from "@/lib/auth-context"
 import { useStore } from "@/lib/store"
 import { useTutions } from "@/hooks/use-tutions"
+import { usePayments } from "@/hooks/use-payments"
 import { updateTutions } from "@/lib/actions/tutions"
 
 const fmtDate = (iso) =>
@@ -54,8 +55,10 @@ function Panel({ title, subtitle, action, children }) {
 
 export default function AdminOverviewPage() {
   const { ready } = useRequireAuth(["admin"])
-  const { users, payments } = useStore()
+  const { users } = useStore()
   const { tuitions, hydrated, refetch } = useTutions()
+  /* Revenue + recent transactions come from real Stripe records in MongoDB. */
+  const { payments, hydrated: paymentsHydrated } = usePayments()
   const [busyId, setBusyId] = useState(null)
 
   const studentCount = users.filter((u) => u.role === "student").length
@@ -88,7 +91,7 @@ export default function AdminOverviewPage() {
     )
   }
 
-  if (!ready || !hydrated) {
+  if (!ready || !hydrated || !paymentsHydrated) {
     return (
       <div className="flex min-h-[45vh] items-center justify-center text-sm text-muted-foreground">
         Redirecting to the admin dashboard…
@@ -101,7 +104,7 @@ export default function AdminOverviewPage() {
       <PageHeader
         eyebrow="Admin"
         title="Platform overview"
-        description="Keep an eye on users, tuition approvals and Stripe revenue across MentorLagbe — everything below updates live from the store."
+        description="Keep an eye on users, tuition approvals and Stripe revenue across MentorLagbe — payments stream in live from Stripe via webhooks."
         actions={
           <Button render={<Link href="/dashboard/admin/tuitions" />}>
             <ShieldCheck className="size-4" /> Review tuitions
@@ -246,7 +249,7 @@ export default function AdminOverviewPage() {
             <div className="flex-1 divide-y divide-border">
               {recentPayments.map((payment) => (
                 <div
-                  key={payment._id}
+                  key={payment.stripeSessionId || String(payment._id)}
                   className="flex items-center justify-between gap-3 px-5 py-3.5"
                 >
                   <div className="min-w-0">
