@@ -29,6 +29,7 @@ import { StatusBadge } from "@/components/shared/role-badge"
 import ApplyDialog from "@/components/tuitions/apply-dialog"
 import { useStore } from "@/lib/store"
 import { useTution } from "@/hooks/use-tutions"
+import { useApplications } from "@/hooks/use-applications"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
 
@@ -41,7 +42,8 @@ const fmtDate = (iso) =>
 
 export default function TuitionDetailsPage() {
   const { id } = useParams()
-  const { reviews, applications, bookmarks, actions } = useStore()
+  const { reviews, bookmarks, actions } = useStore()
+  const { applications, hydrated: applicationsHydrated } = useApplications()
   const { tuition, hydrated } = useTution(id)
   const { user, isAuthenticated } = useAuth()
   const [ready, setReady] = useState(false)
@@ -54,7 +56,7 @@ export default function TuitionDetailsPage() {
     return () => clearTimeout(timer)
   }, [])
 
-  if (!hydrated || !ready) {
+  if (!hydrated || !applicationsHydrated || !ready) {
     return (
       <div className="container-page space-y-6 py-10">
         <Skeleton className="h-5 w-40" />

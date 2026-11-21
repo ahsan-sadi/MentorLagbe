@@ -44,7 +44,7 @@ import PageHeader from "@/components/shared/page-header"
 import { StatusBadge } from "@/components/shared/role-badge"
 import { TuitionForm } from "@/components/dashboard/tuition-form"
 import { useRequireAuth } from "@/lib/auth-context"
-import { useStore } from "@/lib/store"
+import { useApplications } from "@/hooks/use-applications"
 import { useTutions } from "@/hooks/use-tutions"
 import { updateTutions, deleteTutions } from "@/lib/actions/tutions"
 
@@ -59,7 +59,7 @@ const fmtDate = (iso) =>
    toggle active/inactive and delete. */
 export default function MyTuitionsPage() {
   const { user, ready } = useRequireAuth(["tutor"])
-  const { applications } = useStore()
+  const { applications, hydrated: applicationsHydrated } = useApplications()
   const { tuitions, hydrated, refetch } = useTutions()
 
   const [editing, setEditing] = useState(null)
@@ -74,7 +74,7 @@ export default function MyTuitionsPage() {
     [tuitions, user]
   )
 
-  if (!ready || !user || !hydrated) {
+  if (!ready || !user || !hydrated || !applicationsHydrated) {
     return (
       <div className="flex min-h-[45vh] items-center justify-center text-sm text-muted-foreground">
         Loading dashboard…

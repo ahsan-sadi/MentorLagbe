@@ -17,13 +17,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { useStore } from "@/lib/store"
 import { useAuth } from "@/lib/auth-context"
+import { createApplication } from "@/lib/actions/applications"
 
 /** Role-restricted application form (students only, one per tuition). */
 export function ApplyDialog({ tuition, alreadyApplied = false, trigger }) {
-  const { actions } = useStore()
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, hydrated: authHydrated } = useAuth()
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(false)
   const [form, setForm] = useState({
@@ -54,7 +53,14 @@ export function ApplyDialog({ tuition, alreadyApplied = false, trigger }) {
     event.preventDefault()
     if (!validate()) return
     setPending(true)
-    const result = await actions.applyToTuition(tuition._id, form)
+    /* The API links the tuition, pulls the tutor email off it and enforces
+       one application per student/tuition. */
+    const result = await createApplication({
+      tuitionId: tuition._id,
+      studentName: user.name,
+      studentEmail: user.email,
+      ...form,
+    })
     setPending(false)
     if (!result.ok) {
       toast.error(result.error)
@@ -67,6 +73,36 @@ export function ApplyDialog({ tuition, alreadyApplied = false, trigger }) {
   }
 
   const isStudent = isAuthenticated && user?.role === "student"
+
+  /* Only admin-approved, active listings accept applications — this mirrors
+     the check the API enforces on POST /applications. */
+  const isOpen =
+    tuition.approvalStatus === "approved" && tuition.isActive !== false
+
+  if (!isOpen) {
+    return (
+      <div className="space-y-2">
+        <Button className="w-full" disabled>
+          Applications closed
+        </Button>
+        <p className="text-center text-xs text-muted-foreground">
+          {tuition.isActive === false
+            ? "This tuition is no longer accepting students."
+            : "This tuition is awaiting admin approval and cannot accept applications yet."}
+        </p>
+      </div>
+    )
+  }
+
+  /* Wait for /get-session before deciding: an already signed-in student
+     must never see the "Sign in to apply" button flash up. */
+  if (!authHydrated) {
+    return (
+      <Button className="w-full" disabled>
+        <Loader2 className="size-4 animate-spin" /> Checking your session…
+      </Button>
+    )
+  }
 
   if (!isAuthenticated) {
     return (

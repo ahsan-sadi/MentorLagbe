@@ -16,7 +16,7 @@ import StatCard from "@/components/shared/stat-card"
 import TuitionCard from "@/components/shared/tuition-card"
 import { StatusBadge } from "@/components/shared/role-badge"
 import { useRequireAuth } from "@/lib/auth-context"
-import { useStore } from "@/lib/store"
+import { useApplications } from "@/hooks/use-applications"
 import { useTutions } from "@/hooks/use-tutions"
 
 const fmtDate = (iso) =>
@@ -28,10 +28,10 @@ const fmtDate = (iso) =>
 
 export default function StudentOverviewPage() {
   const { user, ready } = useRequireAuth(["student"])
-  const { applications } = useStore()
+  const { applications, hydrated: applicationsHydrated } = useApplications()
   const { tuitions, hydrated } = useTutions()
 
-  if (!ready || !user || !hydrated) {
+  if (!ready || !user || !hydrated || !applicationsHydrated) {
     return (
       <div className="flex min-h-[45vh] items-center justify-center text-sm text-muted-foreground">
         Loading dashboard…

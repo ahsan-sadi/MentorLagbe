@@ -34,8 +34,9 @@ import EmptyState from "@/components/shared/empty-state"
 import PageHeader from "@/components/shared/page-header"
 import { StatusBadge } from "@/components/shared/role-badge"
 import { useRequireAuth } from "@/lib/auth-context"
-import { useStore } from "@/lib/store"
 import { useTutions } from "@/hooks/use-tutions"
+import { useApplications } from "@/hooks/use-applications"
+import { cancelApplication } from "@/lib/actions/applications"
 import { cn } from "@/lib/utils"
 
 const fmtDate = (iso) =>
@@ -64,7 +65,8 @@ function StatChip({ icon: Icon, count, label, className }) {
 
 export default function MyApplicationsPage() {
   const { user, ready } = useRequireAuth(["student"])
-  const { applications, actions } = useStore()
+  const { applications, hydrated: applicationsHydrated, refetch } =
+    useApplications()
   const { tuitions, hydrated } = useTutions()
   const [target, setTarget] = useState(null)
   const [cancelling, setCancelling] = useState(false)
@@ -94,14 +96,15 @@ export default function MyApplicationsPage() {
   const handleCancel = async () => {
     if (!target) return
     setCancelling(true)
-    const result = await actions.cancelApplication(target._id)
+    const result = await cancelApplication(target._id)
     setCancelling(false)
     setTarget(null)
     if (!result.ok) return toast.error(result.error)
+    refetch()
     toast.success("Application cancelled")
   }
 
-  if (!ready || !user || !hydrated) {
+  if (!ready || !user || !hydrated || !applicationsHydrated) {
     return (
       <div className="flex min-h-[45vh] items-center justify-center text-sm text-muted-foreground">
         Loading dashboard…

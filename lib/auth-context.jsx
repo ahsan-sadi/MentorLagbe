@@ -1,8 +1,7 @@
 "use client"
 
-/* Thin auth layer on top of the mock store — mirrors the BetterAuth API
-   surface (signIn / signUp / useSession) so a real backend can be swapped
-   in later without touching the pages. */
+/* Thin auth layer over the real session — mirrors the BetterAuth API surface
+   (signIn / signUp / useSession) so pages never touch the session directly. */
 
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
@@ -10,15 +9,25 @@ import { useStore } from "./store"
 import { useSession } from "./auth-client"
 
 export function useAuth() {
-  const { currentUser, hydrated, actions } = useStore()
+  /* Identity comes from the real session (better-auth `useSession()`), so a
+     user signed in through /sign-in is recognised across the whole app. The
+     mock store's `currentUser` only holds the local demo session and stays
+     `null` for real sign-ins. */
+  const { data, isPending } = useSession()
+  const { actions } = useStore()
+  const user = data?.user ?? null
 
   return {
-    user: currentUser,
-    hydrated,
-    isAuthenticated: Boolean(currentUser),
-    role: currentUser?.role || null,
+    user,
+    /* false until /get-session answers — let pages show a loading state
+       instead of flashing "Sign in" at an already signed-in user. */
+    hydrated: !isPending,
+    isAuthenticated: Boolean(user),
+    role: user?.role || null,
     signIn: actions.signIn,
     signUp: actions.signUp,
+    /* Demo-store sign-out; pair it with `signOutEverywhere()` for the real
+       session (call sites already do `Promise.allSettled([...])`). */
     signOut: actions.signOut,
     updateProfile: actions.updateProfile,
   }

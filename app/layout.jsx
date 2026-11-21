@@ -39,8 +39,10 @@ export default function RootLayout({ children }) {
     >
       <body className="min-h-svh bg-background text-foreground">
         <ThemeProvider>
-          <StoreProvider>{children}</StoreProvider>
-          {/* <Toaster richColors position="top-right" closeButton /> */}
+          <StoreProvider>
+            <div className="flex min-h-screen flex-col">{children}</div>
+            <Toaster richColors position="top-right" closeButton />
+          </StoreProvider>
         </ThemeProvider>
       </body>
     </html>
