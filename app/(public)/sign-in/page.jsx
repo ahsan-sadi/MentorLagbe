@@ -63,12 +63,12 @@ export default function SignInPage() {
       toast.error(error)
       return
     }
-    
+
     // Store JWT token from BetterAuth response
     if (data.token) {
       localStorage.setItem("mentorlagbe_jwt", data.token)
     }
-    
+
     toast.success(`Welcome back, ${data.user.name.split(" ")[0]}!`)
     // Fetch JWT token for backend API
     await refreshToken()
@@ -214,7 +214,7 @@ export default function SignInPage() {
         </Card>
 
         {/* --------------------------- demo accounts --------------------------- */}
-        <div className="mt-6 rounded-2xl border border-border bg-card p-4 sm:p-5">
+        {/* <div className="mt-6 rounded-2xl border border-border bg-card p-4 sm:p-5">
           <p className="flex items-center gap-2 font-heading text-sm font-semibold">
             <Sparkles className="size-4 text-primary" /> Demo accounts
           </p>
@@ -246,7 +246,7 @@ export default function SignInPage() {
               </li>
             ))}
           </ul>
-        </div>
+        </div> */}
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           New to MentorLagbe?{" "}
