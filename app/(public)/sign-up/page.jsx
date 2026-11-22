@@ -96,12 +96,12 @@ export default function SignUpPage() {
       toast.error(error)
       return
     }
-    
+
     // Store JWT token from BetterAuth response
     if (data.token) {
       localStorage.setItem("mentorlagbe_jwt", data.token)
     }
-    
+
     toast.success(`Account created — welcome, ${data.user.name.split(" ")[0]}!`)
     // Fetch JWT token for backend API
     await refreshToken()
@@ -281,12 +281,6 @@ export default function SignUpPage() {
                   </>
                 )}
               </Button>
-
-              <p className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-                <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
-                Your account is stored locally in this demo — BetterAuth is
-                mocked, so no data leaves your browser.
-              </p>
             </form>
           </CardContent>
         </Card>
