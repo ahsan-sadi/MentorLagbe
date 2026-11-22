@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import {
   ChevronLeft,
@@ -32,7 +32,6 @@ const PER_PAGE = 6
 export default function BrowseTuitions({ serverParams = {} }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { tuitions, hydrated } = useTutions()
 
   const [q, setQ] = useState(serverParams.q || "")
   const [subject, setSubject] = useState(serverParams.subject || "")
@@ -40,6 +39,16 @@ export default function BrowseTuitions({ serverParams = {} }) {
   const [mode, setMode] = useState(serverParams.mode || "")
   const [page, setPage] = useState(Number(serverParams.page) || 1)
   const [ready, setReady] = useState(false)
+
+  // Pass params to hook for server-side search/filter/pagination
+  const { tuitions, pagination, hydrated } = useTutions({
+    q: q || undefined,
+    subject: subject || undefined,
+    classLevel: classLevel || undefined,
+    mode: mode || undefined,
+    page,
+    limit: PER_PAGE,
+  })
 
   /* keep local state in sync when the URL changes (back/forward, links) —
      React's documented "adjust state when props change" pattern (during
@@ -91,30 +100,9 @@ export default function BrowseTuitions({ serverParams = {} }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q])
 
-  const results = useMemo(() => {
-    const needle = q.trim().toLowerCase()
-    return tuitions
-      .filter((t) => t.approvalStatus === "approved" && t.isActive)
-      .filter((t) => {
-        if (!needle) return true
-        return (
-          t.title.toLowerCase().includes(needle) ||
-          t.subject.toLowerCase().includes(needle) ||
-          t.tutorName.toLowerCase().includes(needle)
-        )
-      })
-      .filter((t) => (subject ? t.subject === subject : true))
-      .filter((t) => (classLevel ? t.classLevel === classLevel : true))
-      .filter((t) => (mode ? t.mode === mode : true))
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-  }, [tuitions, q, subject, classLevel, mode])
-
-  const totalPages = Math.max(1, Math.ceil(results.length / PER_PAGE))
+  const totalPages = pagination?.totalPages || 1
   const currentPage = Math.min(page, totalPages)
-  const visible = results.slice(
-    (currentPage - 1) * PER_PAGE,
-    currentPage * PER_PAGE
-  )
+  const totalCount = pagination?.total || tuitions.length
 
   const hasFilters = Boolean(q || subject || classLevel || mode)
   const clearFilters = () => {
@@ -207,7 +195,7 @@ export default function BrowseTuitions({ serverParams = {} }) {
                 <SelectValue placeholder="Online or Offline" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Online &amp; Offline</SelectItem>
+                <SelectItem value="all">Online & Offline</SelectItem>
                 {MODES.map((item) => (
                   <SelectItem key={item} value={item}>
                     {item}
@@ -225,9 +213,9 @@ export default function BrowseTuitions({ serverParams = {} }) {
             <SlidersHorizontal className="size-4" />
             <span>
               <span className="font-semibold text-foreground">
-                {results.length}
+                {totalCount}
               </span>{" "}
-              {results.length === 1 ? "tuition" : "tuitions"} found
+              {totalCount === 1 ? "tuition" : "tuitions"} found
               {hasFilters && " with the current filters"}
             </span>
           </p>
@@ -242,8 +230,8 @@ export default function BrowseTuitions({ serverParams = {} }) {
       {/* ---------------------------- results ---------------------------- */}
       <div className="mt-8">
         {!ready || !hydrated ? (
-          <TuitionGridSkeleton count={6} />
-        ) : results.length === 0 ? (
+          <TuitionGridSkeleton count={PER_PAGE} />
+        ) : tuitions.length === 0 ? (
           <EmptyState
             icon={Search}
             title="No tuitions match those filters"
@@ -254,7 +242,7 @@ export default function BrowseTuitions({ serverParams = {} }) {
         ) : (
           <>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {visible.map((tuition) => (
+              {tuitions.map((tuition) => (
                 <TuitionCard key={tuition._id} tuition={tuition} />
               ))}
             </div>

@@ -1,47 +1,67 @@
 "use client"
 
-/* Thin auth layer over the real session — mirrors the BetterAuth API surface
-   (signIn / signUp / useSession) so pages never touch the session directly. */
+/* Thin auth layer over BetterAuth session — provides user, JWT token, and auth actions.
+   BetterAuth handles JWT natively when `jwt: { enabled: true }` is configured.
+   JWT token is stored in localStorage after sign-in/sign-up. */
 
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useStore } from "./store"
 import { useSession } from "./auth-client"
 
+const JWT_STORAGE_KEY = "mentorlagbe_jwt"
+
 export function useAuth() {
-  /* Identity comes from the real session (better-auth `useSession()`), so a
-     user signed in through /sign-in is recognised across the whole app. The
-     mock store's `currentUser` only holds the local demo session and stays
-     `null` for real sign-ins. */
   const { data, isPending } = useSession()
   const { actions } = useStore()
   const user = data?.user ?? null
+  const [token, setToken] = useState(null)
+
+  // Load JWT token from localStorage
+  const loadToken = useCallback(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(JWT_STORAGE_KEY)
+      if (stored) {
+        setToken(stored)
+      }
+    }
+  }, [])
+
+  // Clear token on sign-out
+  const clearToken = useCallback(() => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(JWT_STORAGE_KEY)
+      setToken(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadToken()
+  }, [loadToken])
 
   return {
     user,
-    /* false until /get-session answers — let pages show a loading state
-       instead of flashing "Sign in" at an already signed-in user. */
+    token,
     hydrated: !isPending,
     isAuthenticated: Boolean(user),
     role: user?.role || null,
     signIn: actions.signIn,
     signUp: actions.signUp,
-    /* Demo-store sign-out; pair it with `signOutEverywhere()` for the real
-       session (call sites already do `Promise.allSettled([...])`). */
-    signOut: actions.signOut,
+    signOut: () => {
+      clearToken()
+      return actions.signOut()
+    },
     updateProfile: actions.updateProfile,
+    refreshToken: loadToken,
   }
 }
 
-/* Client-side route guard used by the dashboard layout.
-   Identity comes from the real session (better-auth `useSession()`), so the
-   `role` on the session user decides which dashboard each user may see. */
+/* Client-side route guard used by the dashboard layout. */
 export function useRequireAuth(allowedRoles = null) {
   const { data, isPending } = useSession()
   const router = useRouter()
 
   const user = data?.user ?? null
-  /* isPending stays true until /get-session answers — no premature redirect. */
   const hydrated = !isPending
 
   const denied =
@@ -55,7 +75,6 @@ export function useRequireAuth(allowedRoles = null) {
     } else if (allowedRoles && !allowedRoles.includes(user.role)) {
       router.replace(dashboardHome(user.role))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPending, user, router])
 
   return {

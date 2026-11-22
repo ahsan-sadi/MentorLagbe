@@ -3,24 +3,24 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Bookmark, MapPin, Monitor, PencilRuler, Wallet } from "lucide-react"
+import { Bookmark, MapPin, Monitor, PencilRuler, Wallet, Star } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/shared/role-badge"
-import { useStore } from "@/lib/store"
 import { useAuth } from "@/lib/auth-context"
+import { useBookmarks } from "@/hooks/use-bookmarks"
 import { cn } from "@/lib/utils"
 
 /**
  * Equal-height tuition card used on Home (featured), Browse Tuitions
  * and the Saved Tuitions tab.
  */
-export function TuitionCard({ tuition, showStatus = false }) {
+export function TuitionCard({ tuition, showStatus = false, showRating = false }) {
   const router = useRouter()
-  const { bookmarks, actions } = useStore()
   const { user, isAuthenticated } = useAuth()
-  const saved = bookmarks.includes(tuition._id)
+  const { isBookmarked, add, remove } = useBookmarks()
+  const saved = isBookmarked(tuition._id)
 
   const toggleBookmark = async (event) => {
     event.preventDefault()
@@ -30,10 +30,13 @@ export function TuitionCard({ tuition, showStatus = false }) {
       router.push("/sign-in")
       return
     }
-    await actions.toggleBookmark(tuition._id)
-    toast.success(
-      saved ? "Removed from saved tuitions" : "Saved to your tuitions"
-    )
+    if (saved) {
+      const result = await remove(tuition._id)
+      if (result.ok) toast.success("Removed from saved tuitions")
+    } else {
+      const result = await add(tuition._id)
+      if (result.ok) toast.success("Saved to your tuitions")
+    }
   }
 
   return (
@@ -89,6 +92,14 @@ export function TuitionCard({ tuition, showStatus = false }) {
             {tuition.title}
           </h3>
         </Link>
+
+        {showRating && tuition.rating && (
+          <div className="mt-2 flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-400">
+            <Star className="size-4 fill-current" />
+            <span className="font-semibold">{tuition.rating}</span>
+            <span className="text-muted-foreground">({tuition.reviewCount || 0})</span>
+          </div>
+        )}
 
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">

@@ -47,7 +47,7 @@ const ROLE_CARDS = {
 
 export default function SignUpPage() {
   const router = useRouter()
-  const { signUp } = useAuth()
+  const { signUp, refreshToken } = useAuth()
 
   const [form, setForm] = useState({ name: "", email: "", password: "" })
   const [role, setRole] = useState("")
@@ -96,7 +96,15 @@ export default function SignUpPage() {
       toast.error(error)
       return
     }
+    
+    // Store JWT token from BetterAuth response
+    if (data.token) {
+      localStorage.setItem("mentorlagbe_jwt", data.token)
+    }
+    
     toast.success(`Account created — welcome, ${data.user.name.split(" ")[0]}!`)
+    // Fetch JWT token for backend API
+    await refreshToken()
     router.push(dashboardHome(data.user.role || role))
     router.refresh() // pick up the fresh session in the navbar
   }

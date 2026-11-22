@@ -2,39 +2,37 @@ import * as React from "react"
 import { getTution, getTutions } from "@/lib/api/tutions"
 
 /**
- * Tuition list from the API. Keeps the `{ tuitions, hydrated }` shape the pages
- * already used with `useStore()`, so only the import changes — plus `refetch()`
- * to re-read after a write (mutations don't live in React state anymore).
- *
- * The fetch runs inside `.then()` callbacks so no `setState` happens
- * synchronously in the effect body.
+ * Tuition list from the API with server-side search, filter, and pagination.
+ * Accepts params object for server-side querying.
  */
-export function useTutions() {
+export function useTutions(params = {}) {
   const [tuitions, setTuitions] = React.useState([])
+  const [pagination, setPagination] = React.useState(null)
   const [hydrated, setHydrated] = React.useState(false)
   const [error, setError] = React.useState(null)
 
   const refetch = React.useCallback(
     () =>
-      getTutions()
-        .then((list) => {
-          setTuitions(list)
+      getTutions(params)
+        .then((data) => {
+          setTuitions(data.tuitions)
+          setPagination(data.pagination)
           setError(null)
-          return list
+          return data
         })
         .catch((err) => {
           setError(err)
-          return []
+          return { tuitions: [], pagination: null }
         })
         .finally(() => setHydrated(true)),
-    []
+    [params]
   )
 
   React.useEffect(() => {
     refetch()
   }, [refetch])
 
-  return { tuitions, hydrated, error, refetch }
+  return { tuitions, pagination, hydrated, error, refetch }
 }
 
 /**

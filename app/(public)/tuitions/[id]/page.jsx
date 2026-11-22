@@ -27,10 +27,10 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { StatusBadge } from "@/components/shared/role-badge"
 import ApplyDialog from "@/components/tuitions/apply-dialog"
-import { useStore } from "@/lib/store"
+import { useAuth } from "@/lib/auth-context"
 import { useTution } from "@/hooks/use-tutions"
 import { useApplications } from "@/hooks/use-applications"
-import { useAuth } from "@/lib/auth-context"
+import { useReviews } from "@/hooks/use-reviews"
 import { cn } from "@/lib/utils"
 
 const fmtDate = (iso) =>
@@ -42,10 +42,10 @@ const fmtDate = (iso) =>
 
 export default function TuitionDetailsPage() {
   const { id } = useParams()
-  const { reviews, bookmarks, actions } = useStore()
   const { applications, hydrated: applicationsHydrated } = useApplications()
   const { tuition, hydrated } = useTution(id)
   const { user, isAuthenticated } = useAuth()
+  const { reviews, stats, hydrated: reviewsHydrated } = useReviews(id)
   const [ready, setReady] = useState(false)
   const [rating, setRating] = useState(5)
   const [comment, setComment] = useState("")
@@ -56,7 +56,7 @@ export default function TuitionDetailsPage() {
     return () => clearTimeout(timer)
   }, [])
 
-  if (!hydrated || !applicationsHydrated || !ready) {
+  if (!hydrated || !applicationsHydrated || !reviewsHydrated || !ready) {
     return (
       <div className="container-page space-y-6 py-10">
         <Skeleton className="h-5 w-40" />
@@ -75,25 +75,16 @@ export default function TuitionDetailsPage() {
 
   if (!tuition) notFound()
 
-  const tuitionReviews = reviews.filter((r) => r.tuitionId === tuition._id)
-  const avgRating = tuitionReviews.length
-    ? (
-        tuitionReviews.reduce((sum, r) => sum + r.rating, 0) /
-        tuitionReviews.length
-      ).toFixed(1)
-    : null
-
   const myApplication = applications.find(
     (a) => a.tuitionId === tuition._id && a.studentEmail === user?.email
   )
-  const saved = bookmarks.includes(tuition._id)
   const isOwner = user?.email === tuition.tutorEmail
 
   const canReview =
     isAuthenticated &&
     user?.role === "student" &&
     myApplication?.status === "accepted" &&
-    !tuitionReviews.some((r) => r.studentName === user.name)
+    !reviews.some((r) => r.studentEmail === user.email)
 
   const submitReview = async (event) => {
     event.preventDefault()
@@ -102,15 +93,23 @@ export default function TuitionDetailsPage() {
       return
     }
     setSubmitting(true)
-    const result = await actions.addReview({
-      tuitionId: tuition._id,
-      rating,
-      comment,
+    const result = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reviews`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tuitionId: tuition._id,
+        rating,
+        comment,
+      }),
     })
+    const data = await result.json()
     setSubmitting(false)
-    if (!result.ok) return toast.error(result.error)
+    if (!result.ok) return toast.error(data?.error || "Failed to post review")
     setComment("")
+    setRating(5)
     toast.success("Thanks for your review!")
+    // Refresh reviews - the hook will refetch
   }
 
   const meta = [
@@ -202,12 +201,12 @@ export default function TuitionDetailsPage() {
                   </span>
                 )}
               </span>
-              {avgRating && (
+              {stats.average && (
                 <span className="flex items-center gap-1 font-semibold text-foreground">
                   <Star className="size-4 fill-amber-400 text-amber-400" />
-                  {avgRating}
+                  {stats.average}
                   <span className="font-normal text-muted-foreground">
-                    ({tuitionReviews.length})
+                    ({stats.count})
                   </span>
                 </span>
               )}
@@ -283,21 +282,21 @@ export default function TuitionDetailsPage() {
             <CardHeader>
               <CardTitle className="font-heading text-lg">
                 Student reviews
-                {avgRating && (
+                {stats.average && (
                   <span className="ml-2 text-sm font-normal text-muted-foreground">
-                    ★ {avgRating}/5 · {tuitionReviews.length}
+                    ★ {stats.average}/5 · {stats.count}
                   </span>
                 )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {tuitionReviews.length === 0 && (
+              {reviews.length === 0 && (
                 <p className="text-sm text-muted-foreground">
                   No reviews yet — students who get accepted can share their
                   experience here.
                 </p>
               )}
-              {tuitionReviews.map((review) => (
+              {reviews.map((review) => (
                 <div
                   key={review._id}
                   className="rounded-xl border border-border p-4"
@@ -394,16 +393,20 @@ export default function TuitionDetailsPage() {
                     toast.info("Sign in to save tuitions")
                     return
                   }
-                  await actions.toggleBookmark(tuition._id)
-                  toast.success(
-                    saved
-                      ? "Removed from saved tuitions"
-                      : "Saved to your tuitions"
+                  const res = await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL}/bookmarks/${tuition._id}`,
+                    {
+                      method: "DELETE",
+                      credentials: "include",
+                    }
                   )
+                  const data = await res.json()
+                  if (!res.ok) return toast.error(data?.error)
+                  toast.success("Removed from saved tuitions")
                 }}
               >
-                <Bookmark className={cn("size-4", saved && "fill-current")} />
-                {saved ? "Saved" : "Save for later"}
+                <Bookmark className={cn("size-4")} />
+                Save for later
               </Button>
             </CardContent>
           </Card>

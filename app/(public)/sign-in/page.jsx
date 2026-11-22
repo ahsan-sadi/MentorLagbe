@@ -25,7 +25,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function SignInPage() {
   const router = useRouter()
-  const { signIn } = useAuth()
+  const { refreshToken } = useAuth()
 
   const [form, setForm] = useState({ email: "", password: "" })
   const [errors, setErrors] = useState({})
@@ -63,9 +63,17 @@ export default function SignInPage() {
       toast.error(error)
       return
     }
+    
+    // Store JWT token from BetterAuth response
+    if (data.token) {
+      localStorage.setItem("mentorlagbe_jwt", data.token)
+    }
+    
     toast.success(`Welcome back, ${data.user.name.split(" ")[0]}!`)
+    // Fetch JWT token for backend API
+    await refreshToken()
     router.push(dashboardHome(data.user.role))
-    router.refresh() // Refresh the page to update the session state
+    router.refresh()
   }
 
   const useDemo = (account) => {
