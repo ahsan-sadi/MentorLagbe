@@ -76,6 +76,33 @@ export default function SignInPage() {
     router.refresh()
   }
 
+  let handleGoogleSignIn = async (e) => {
+    e.preventDefault()
+    console.log("Initiating Google sign-in...")
+    try {
+      const { data, error } = await authClient.signIn.social({
+        provider: "google",
+      })
+      console.log("Google sign-in result:", { data, error })
+      if (!data) {
+        // toast.error(error)
+        return
+      }
+      // Store JWT token from BetterAuth response
+      if (data.token) {
+        localStorage.setItem("mentorlagbe_jwt", data.token)
+      }
+      // toast.success(`Welcome back!`)
+      // Fetch JWT token for backend API
+      // refreshToken()
+      router.push(dashboardHome(data.user.role))
+      router.refresh()
+    } catch (err) {
+      console.error("Error during Google sign-in:", err)
+      toast.error("An error occurred during Google sign-in.")
+    }
+  }
+
   const useDemo = (account) => {
     setForm({ email: account.email, password: account.password })
     setErrors({})
@@ -185,9 +212,7 @@ export default function SignInPage() {
                 variant="outline"
                 className="w-full"
                 size="lg"
-                onClick={() =>
-                  toast.info("Google sign-in is not enabled in this demo")
-                }
+                onClick={handleGoogleSignIn}
               >
                 <svg viewBox="0 0 24 24" className="size-4" aria-hidden>
                   <path
