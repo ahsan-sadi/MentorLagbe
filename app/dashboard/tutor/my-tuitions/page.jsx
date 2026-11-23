@@ -60,7 +60,9 @@ const fmtDate = (iso) =>
 export default function MyTuitionsPage() {
   const { user, ready } = useRequireAuth(["tutor"])
   const { applications, hydrated: applicationsHydrated } = useApplications()
-  const { tuitions, hydrated, refetch } = useTutions()
+  /* `scope=mine` returns every listing this tutor owns (pending, rejected and
+     paused included) — the public endpoint only ever returns approved ones. */
+  const { tuitions, hydrated, refetch } = useTutions({ scope: "mine" })
 
   const [editing, setEditing] = useState(null)
   const [deleting, setDeleting] = useState(null)

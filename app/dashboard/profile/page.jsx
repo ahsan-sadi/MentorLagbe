@@ -2,21 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { CalendarDays, Info, Loader2, RotateCcw, Save } from "lucide-react"
+import { CalendarDays, Info, Loader2, Save } from "lucide-react"
 import { toast } from "sonner"
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
@@ -25,7 +15,7 @@ import ImageUpload from "@/components/shared/image-upload"
 import PageHeader from "@/components/shared/page-header"
 import { RoleBadge } from "@/components/shared/role-badge"
 import { useRequireAuth } from "@/lib/auth-context"
-import { useStore } from "@/lib/store"
+import { authClient } from "@/lib/auth-client"
 
 const fmtDate = (iso) =>
   new Date(iso).toLocaleDateString("en-GB", {
@@ -34,12 +24,9 @@ const fmtDate = (iso) =>
     year: "numeric",
   })
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
 export default function ProfilePage() {
   const { user, ready } = useRequireAuth()
   const router = useRouter()
-  const { actions } = useStore()
 
   const [form, setForm] = useState({
     name: "",
@@ -50,12 +37,10 @@ export default function ProfilePage() {
   })
   const [syncedFrom, setSyncedFrom] = useState(null)
   const [pending, setPending] = useState(false)
-  const [resetOpen, setResetOpen] = useState(false)
-  const [resetting, setResetting] = useState(false)
 
-  /* seed the form once per signed-in account (and again after a demo reset) */
+  /* seed the form once per signed-in account */
   useEffect(() => {
-    if (!ready || !user || syncedFrom === user._id) return
+    if (!ready || !user || syncedFrom === user.id) return
     setForm({
       name: user.name || "",
       email: user.email || "",
@@ -63,7 +48,7 @@ export default function ProfilePage() {
       bio: user.bio || "",
       image: user.image || "",
     })
-    setSyncedFrom(user._id)
+    setSyncedFrom(user.id)
   }, [ready, user, syncedFrom])
 
   const update = (field) => (event) =>
@@ -72,39 +57,27 @@ export default function ProfilePage() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     const name = form.name.trim()
-    const email = form.email.trim()
 
     if (!name) {
       toast.error("Please enter your full name")
       return
     }
-    if (!EMAIL_RE.test(email)) {
-      toast.error("Please enter a valid email address")
-      return
-    }
 
     setPending(true)
-    const result = await actions.updateProfile({
+    /* Persist to Better Auth / MongoDB — `email` is deliberately not sent:
+       the endpoint rejects it, and every tuition and application on the
+       platform is keyed by it, so changing it would orphan your listings. */
+    const { error } = await authClient.updateUser({
       name,
-      email,
       phone: form.phone.trim(),
       bio: form.bio,
       image: form.image.trim(),
     })
     setPending(false)
 
-    if (!result.ok) return toast.error(result.error)
+    if (error) return toast.error(error.message || "Could not save your profile")
+    setSyncedFrom(user.id)
     toast.success("Profile updated")
-  }
-
-  const handleReset = async () => {
-    setResetting(true)
-    const result = await actions.resetDemo()
-    setResetting(false)
-    setResetOpen(false)
-    if (!result.ok) return toast.error(result.error)
-    setSyncedFrom(null)
-    toast.success("Demo data restored")
     router.refresh()
   }
 
@@ -135,7 +108,8 @@ export default function ProfilePage() {
               Profile details
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Your email is used to sign in — make sure it stays accurate.
+              Your email is your sign-in identity and stays fixed — name,
+              contact details and photo can be updated below.
             </p>
           </div>
 
@@ -158,11 +132,16 @@ export default function ProfilePage() {
                   id="profile-email"
                   type="email"
                   value={form.email}
-                  onChange={update("email")}
+                  readOnly
+                  disabled
                   placeholder="you@example.com"
                   className="h-10"
                   autoComplete="email"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Your sign-in email — every tuition and application is linked
+                  to it, so it can&apos;t be changed here.
+                </p>
               </div>
             </div>
 
@@ -266,58 +245,6 @@ export default function ProfilePage() {
                 — role changes requested here won't apply until an admin updates
                 them.
               </p>
-            </CardContent>
-          </Card>
-
-          {/* --------------------------- reset demo --------------------------- */}
-          <Card className="rounded-2xl border border-border">
-            <CardHeader>
-              <CardTitle className="font-heading text-lg">Demo data</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Restore the original seed users, tuitions, applications and
-                payments. This wipes every local change made during this demo.
-              </p>
-              <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  disabled={resetting}
-                  onClick={() => setResetOpen(true)}
-                >
-                  {resetting ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <RotateCcw className="size-4" />
-                  )}
-                  Reset demo data
-                </Button>
-
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Reset all demo data?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Every tuition, application, payment and profile edit you
-                      made will be replaced with the original seed data. You
-                      will be signed out.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={resetting}>
-                      Cancel
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="destructive"
-                      disabled={resetting}
-                      onClick={handleReset}
-                    >
-                      {resetting ? "Resetting…" : "Yes, reset data"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
             </CardContent>
           </Card>
         </aside>

@@ -51,7 +51,8 @@ export default function ApplicantsPage() {
   const { user, ready } = useRequireAuth(["tutor"])
   const { applications, hydrated: applicationsHydrated, refetch } =
     useApplications()
-  const { tuitions, hydrated } = useTutions()
+  /* Own listings, every status — an applicant's tuition may still be pending. */
+  const { tuitions, hydrated } = useTutions({ scope: "mine" })
 
   const [status, setStatus] = useState("all")
   const [query, setQuery] = useState("")

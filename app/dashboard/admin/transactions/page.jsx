@@ -23,7 +23,7 @@ import PageHeader from "@/components/shared/page-header"
 import StatCard from "@/components/shared/stat-card"
 import { RoleBadge } from "@/components/shared/role-badge"
 import { useRequireAuth } from "@/lib/auth-context"
-import { useStore } from "@/lib/store"
+import { useUsers } from "@/hooks/use-users"
 import { usePayments } from "@/hooks/use-payments"
 
 const fmtDate = (iso) =>
@@ -35,7 +35,8 @@ const fmtDate = (iso) =>
 
 export default function AdminTransactionsPage() {
   const { ready } = useRequireAuth(["admin"])
-  const { users } = useStore()
+  /* Pro-plan counters come from real accounts, not the demo store. */
+  const { users, hydrated: usersHydrated } = useUsers()
   /* Real Stripe records from MongoDB — not the demo store. */
   const { payments, hydrated, error } = usePayments()
 
@@ -53,7 +54,7 @@ export default function AdminTransactionsPage() {
     [payments]
   )
 
-  if (!ready) {
+  if (!ready || !hydrated || !usersHydrated) {
     return (
       <div className="flex min-h-[45vh] items-center justify-center text-sm text-muted-foreground">
         Redirecting to the admin dashboard…

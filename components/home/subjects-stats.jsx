@@ -9,11 +9,19 @@ import {
   Languages,
   Quote,
   Star,
+  GraduationCap,
+  Briefcase,
+  Globe,
+  Laptop,
+  Microscope,
+  Palette,
+  FunctionSquare,
 } from "lucide-react"
 
-import { platformStats, subjectHighlights, testimonials } from "@/lib/data/seed"
+import { platformStats, testimonials } from "@/lib/data/seed"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { getCategoriesStats } from "@/lib/api/tutions"
 
 const ICONS = {
   calculator: Calculator,
@@ -22,11 +30,25 @@ const ICONS = {
   languages: Languages,
   flask: FlaskConical,
   book: BookOpen,
+  programming: Laptop,
+  ict: FunctionSquare,
+  biology: Microscope,
+  economics: Briefcase,
+  bangla: BookOpen,
+  "business studies": Briefcase,
+  chemistry: FlaskConical,
+  english: BookOpen,
+  accounting: Calculator,
+  mathematics: Calculator,
+  ielts: Languages,
+  physics: Atom,
 }
 
 /* ------------------------ subjects + statistics ------------------- */
 
-export function SubjectsStats() {
+export async function SubjectsStats() {
+  const { categories = [] } = await getCategoriesStats()
+
   return (
     <section className="section border-y border-border bg-muted/40">
       <div className="container-page">
@@ -42,12 +64,12 @@ export function SubjectsStats() {
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
-              {subjectHighlights.map((subject) => {
-                const Icon = ICONS[subject.icon] || BookOpen
+              {categories.map((category) => {
+                const Icon = ICONS[category.subject.toLowerCase()] || BookOpen
                 return (
                   <Link
-                    key={subject.name}
-                    href={`/tuitions?subject=${encodeURIComponent(subject.name)}`}
+                    key={category.subject}
+                    href={`/tuitions?subject=${encodeURIComponent(category.subject)}`}
                     className="card-hover group flex items-center gap-4 rounded-2xl border border-border bg-card p-4"
                   >
                     <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white">
@@ -55,10 +77,10 @@ export function SubjectsStats() {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-foreground group-hover:text-primary">
-                        {subject.name}
+                        {category.subject}
                       </span>
                       <span className="block text-xs text-muted-foreground">
-                        {subject.tutors} tutors available
+                        {category.count} tuition{category.count !== 1 ? "s" : ""} available
                       </span>
                     </span>
                     <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />

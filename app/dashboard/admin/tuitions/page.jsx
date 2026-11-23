@@ -70,7 +70,9 @@ function StatChip({ icon: Icon, count, label, className }) {
 
 export default function AdminTuitionsPage() {
   const { ready } = useRequireAuth(["admin"])
-  const { tuitions, hydrated, refetch } = useTutions()
+  /* Admins need the whole catalogue — the public endpoint hides pending and
+     rejected listings, which is exactly what this approval queue reviews. */
+  const { tuitions, hydrated, refetch } = useTutions({ scope: "all" })
   const [q, setQ] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [busyKey, setBusyKey] = useState(null)

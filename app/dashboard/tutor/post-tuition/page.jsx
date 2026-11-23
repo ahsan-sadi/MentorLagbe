@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import PageHeader from "@/components/shared/page-header"
 import { TuitionForm } from "@/components/dashboard/tuition-form"
 import { useRequireAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/auth-context"
 import { useTutions } from "@/hooks/use-tutions"
 import { FREE_TUTOR_POST_LIMIT } from "@/lib/constants"
 import { cn } from "@/lib/utils"
@@ -22,7 +23,9 @@ import { getTutionsCount } from "@/lib/api/tutions"
 export default function PostTuitionPage() {
   const router = useRouter()
   const { user, ready } = useRequireAuth(["tutor"])
-  const { tuitions, hydrated } = useTutions()
+  const { token } = useAuth()
+  /* Own listings only — the free-plan slot count must include pending ones. */
+  const { tuitions, hydrated } = useTutions({ scope: "mine" })
   const [submitting, setSubmitting] = useState(false)
 
   if (!ready || !user || !hydrated) {
@@ -55,15 +58,18 @@ export default function PostTuitionPage() {
       }
     }
     setSubmitting(true)
-    const result = await createTutions({
-      ...data,
-      tutorName: user.name,
-      tutorEmail: user.email,
-      tutorPlan: user.plan || "free",
-      approvalStatus: "pending",
-      isActive: true,
-      createdAt: new Date().toISOString(),
-    })
+    const result = await createTutions(
+      {
+        ...data,
+        tutorName: user.name,
+        tutorEmail: user.email,
+        tutorPlan: user.plan || "free",
+        approvalStatus: "pending",
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      },
+      token
+    )
     setSubmitting(false)
     if (!result.ok) return toast.error(result.error)
     toast.success("Tuition submitted for admin approval")

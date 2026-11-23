@@ -31,6 +31,7 @@ export default function SignInPage() {
   const [errors, setErrors] = useState({})
   const [showPassword, setShowPassword] = useState(false)
   const [pending, setPending] = useState(false)
+  const [authError, setAuthError] = useState("")
 
   const setField = (field) => (event) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }))
@@ -49,6 +50,7 @@ export default function SignInPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    setAuthError("")
     if (!validate()) return
     setPending(true)
     const { data, error } = await authClient.signIn.email({
@@ -60,16 +62,15 @@ export default function SignInPage() {
 
     setPending(false)
     if (!data) {
-      toast.error(error)
+      const errorMessage = error?.message || error || "Invalid email or password"
+      setAuthError(errorMessage)
       return
     }
 
-    // Store JWT token from BetterAuth response
-    if (data.token) {
-      localStorage.setItem("mentorlagbe_jwt", data.token)
-    }
+    // JWT token will be fetched from backend via /auth/token endpoint
+    // using the BetterAuth session cookie
 
-    toast.success(`Welcome back, ${data.user.name.split(" ")[0]}!`)
+    toast.success(`Welcome back`)
     // Fetch JWT token for backend API
     await refreshToken()
     router.push(dashboardHome(data.user.role))
@@ -132,6 +133,14 @@ export default function SignInPage() {
           </CardHeader>
 
           <CardContent>
+            {authError && (
+              <div
+                className="mb-4 rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
+                role="alert"
+              >
+                {authError}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               <div className="space-y-1.5">
                 <Label htmlFor="signin-email">Email</Label>

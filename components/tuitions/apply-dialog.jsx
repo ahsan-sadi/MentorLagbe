@@ -22,7 +22,7 @@ import { createApplication } from "@/lib/actions/applications"
 
 /** Role-restricted application form (students only, one per tuition). */
 export function ApplyDialog({ tuition, alreadyApplied = false, trigger }) {
-  const { user, isAuthenticated, hydrated: authHydrated } = useAuth()
+  const { user, isAuthenticated, hydrated: authHydrated, token } = useAuth()
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(false)
   const [form, setForm] = useState({
@@ -55,12 +55,15 @@ export function ApplyDialog({ tuition, alreadyApplied = false, trigger }) {
     setPending(true)
     /* The API links the tuition, pulls the tutor email off it and enforces
        one application per student/tuition. */
-    const result = await createApplication({
-      tuitionId: tuition._id,
-      studentName: user.name,
-      studentEmail: user.email,
-      ...form,
-    })
+    const result = await createApplication(
+      {
+        tuitionId: tuition._id,
+        studentName: user.name,
+        studentEmail: user.email,
+        ...form,
+      },
+      token
+    )
     setPending(false)
     if (!result.ok) {
       toast.error(result.error)

@@ -20,7 +20,7 @@ import EmptyState from "@/components/shared/empty-state"
 import PageHeader from "@/components/shared/page-header"
 import StatCard from "@/components/shared/stat-card"
 import { useRequireAuth } from "@/lib/auth-context"
-import { useStore } from "@/lib/store"
+import { useUsers } from "@/hooks/use-users"
 import { useTutions } from "@/hooks/use-tutions"
 import { usePayments } from "@/hooks/use-payments"
 import { updateTutions } from "@/lib/actions/tutions"
@@ -55,8 +55,11 @@ function Panel({ title, subtitle, action, children }) {
 
 export default function AdminOverviewPage() {
   const { ready } = useRequireAuth(["admin"])
-  const { users } = useStore()
-  const { tuitions, hydrated, refetch } = useTutions()
+  /* Real accounts from `GET /users` — the localStorage store only ever held
+     whatever that one browser had seeded, so these counts were fictional. */
+  const { users, hydrated: usersHydrated } = useUsers()
+  /* Every listing, every status — the pending queue lives here. */
+  const { tuitions, hydrated, refetch } = useTutions({ scope: "all" })
   /* Revenue + recent transactions come from real Stripe records in MongoDB. */
   const { payments, hydrated: paymentsHydrated } = usePayments()
   const [busyId, setBusyId] = useState(null)
@@ -91,7 +94,7 @@ export default function AdminOverviewPage() {
     )
   }
 
-  if (!ready || !hydrated || !paymentsHydrated) {
+  if (!ready || !hydrated || !paymentsHydrated || !usersHydrated) {
     return (
       <div className="flex min-h-[45vh] items-center justify-center text-sm text-muted-foreground">
         Redirecting to the admin dashboard…

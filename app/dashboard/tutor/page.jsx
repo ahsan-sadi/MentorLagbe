@@ -27,7 +27,8 @@ import { cn } from "@/lib/utils"
 export default function TutorOverviewPage() {
   const { user, ready } = useRequireAuth(["tutor"])
   const { applications, hydrated: applicationsHydrated } = useApplications()
-  const { tuitions, hydrated } = useTutions()
+  /* Own listings, every status — pending ones count towards the overview. */
+  const { tuitions, hydrated } = useTutions({ scope: "mine" })
 
   if (!ready || !user || !hydrated || !applicationsHydrated) {
     return (

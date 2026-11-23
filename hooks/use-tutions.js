@@ -3,7 +3,12 @@ import { getTution, getTutions } from "@/lib/api/tutions"
 
 /**
  * Tuition list from the API with server-side search, filter, and pagination.
- * Accepts params object for server-side querying.
+ * Accepts a params object for server-side querying.
+ *
+ * The params object is usually an inline literal (`useTutions({ q, page })`),
+ * so it gets a fresh identity on every render. Keying the callback on the
+ * SERIALIZED value keeps `refetch` stable — otherwise the effect below would
+ * refetch after every render in an endless loop.
  */
 export function useTutions(params = {}) {
   const [tuitions, setTuitions] = React.useState([])
@@ -11,22 +16,28 @@ export function useTutions(params = {}) {
   const [hydrated, setHydrated] = React.useState(false)
   const [error, setError] = React.useState(null)
 
-  const refetch = React.useCallback(
-    () =>
-      getTutions(params)
-        .then((data) => {
-          setTuitions(data.tuitions)
-          setPagination(data.pagination)
-          setError(null)
-          return data
-        })
-        .catch((err) => {
-          setError(err)
-          return { tuitions: [], pagination: null }
-        })
-        .finally(() => setHydrated(true)),
-    [params]
-  )
+  const paramsKey = JSON.stringify(params)
+
+  const refetch = React.useCallback(() => {
+    let next = {}
+    try {
+      next = JSON.parse(paramsKey) || {}
+    } catch {
+      next = {}
+    }
+    return getTutions(next)
+      .then((data) => {
+        setTuitions(data.tuitions)
+        setPagination(data.pagination)
+        setError(null)
+        return data
+      })
+      .catch((err) => {
+        setError(err)
+        return { tuitions: [], pagination: null }
+      })
+      .finally(() => setHydrated(true))
+  }, [paramsKey])
 
   React.useEffect(() => {
     refetch()

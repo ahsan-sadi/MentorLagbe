@@ -32,7 +32,8 @@ import PageHeader from "@/components/shared/page-header"
 import { RoleBadge, StatusBadge } from "@/components/shared/role-badge"
 import { useRequireAuth } from "@/lib/auth-context"
 import { ROLES, ROLE_LABELS } from "@/lib/constants"
-import { useStore } from "@/lib/store"
+import { updateUser } from "@/lib/api/users"
+import { useUsers } from "@/hooks/use-users"
 import { cn } from "@/lib/utils"
 
 const fmtDate = (iso) =>
@@ -68,7 +69,9 @@ function StatChip({ icon: Icon, count, label, className }) {
 
 export default function AdminUsersPage() {
   const { user, ready } = useRequireAuth(["admin"])
-  const { users, actions } = useStore()
+  /* Real accounts from `GET /users` — the old localStorage store only ever
+     held whatever the browser had seeded, so this table was fictional. */
+  const { users, hydrated, refetch } = useUsers()
   const [q, setQ] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
   const [busyId, setBusyId] = useState(null)
@@ -95,19 +98,22 @@ export default function AdminUsersPage() {
   }, [users, q, roleFilter])
 
   const handleRoleChange = async (u, role) => {
-    if (u._id === user?._id) {
+    /* `useRequireAuth` hands back the Better Auth user, which carries `id`
+       (and `email`) rather than `_id` — compare on email so the guard fires. */
+    if (u.email === user?.email) {
       toast.info("You cannot change your own role")
       return
     }
     if (role === u.role) return
     setBusyId(u._id)
-    const result = await actions.setUserRole(u._id, role)
+    const result = await updateUser(u._id, { role })
     setBusyId(null)
     if (!result.ok) return toast.error(result.error)
     toast.success(`${u.name} is now a ${role}`)
+    refetch()
   }
 
-  if (!ready) {
+  if (!ready || !hydrated) {
     return (
       <div className="flex min-h-[45vh] items-center justify-center text-sm text-muted-foreground">
         Redirecting to the admin dashboard…
@@ -220,7 +226,7 @@ export default function AdminUsersPage() {
             </TableHeader>
             <TableBody>
               {filtered.map((u) => {
-                const isSelf = u._id === user?._id
+                const isSelf = u.email === user?.email
                 return (
                   <TableRow key={u._id}>
                     <TableCell className="px-4 py-3">
